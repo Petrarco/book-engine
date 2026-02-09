@@ -1,2 +1,3 @@
-# book-engine
-Book para processamento e validaćão de tabelas silvers
+# Silver Layer Engine
+
+This is the core module for the Silver Layer Engine in the Book Engine project.
