@@ -1,0 +1,122 @@
+# ==========================================
+# BLOCOS REUTILIZÁVEIS (Anchors & Aliases)
+# ==========================================
+x-spark-base: &spark_base
+  "spark.sql.adaptive.enabled": "true"
+  "spark.serializer": "org.apache.spark.serializer.KryoSerializer"
+  "spark.sql.sources.partitionOverwriteMode": "dynamic"
+  "spark.databricks.delta.schema.autoMerge.enabled": "false"
+
+x-email-base: &email_base
+  smtp_server: "smtp.office365.com"
+  smtp_port: 587
+  use_tls: true
+
+# ==========================================
+# CONFIGURAÇÃO DO AMBIENTE
+# ==========================================
+environment: "dev"
+
+# ==========================================
+# 1. INFRAESTRUTURA FÍSICA (Storage Accounts)
+# ==========================================
+storage_accounts:
+  account_dgf:
+    account_name: "stbrdgfdev"
+    auth_type: "OAuth"
+    tenant_id: "1234abcd-56ef-78gh-90ij-klmnopqrstuv"
+    client_id_secret_key: "sp-dgf-client-id-dev"
+    
+  account_cross:
+    account_name: "stbrcrossdev"
+    auth_type: "OAuth"
+    tenant_id: "1234abcd-56ef-78gh-90ij-klmnopqrstuv"
+    client_id_secret_key: "sp-cross-client-id-dev"
+
+# ==========================================
+# 2. MALHA DE DADOS (Data Domains & Subdomains)
+# ==========================================
+data_domains:
+  
+  # Domínio 1: Diretoria de Gestão Financeira (DGF)
+  dgf:
+    cost_tracking:
+      cost_center: "financas_dgf"
+      owner: "squad_dados_dgf"
+      project: "motor_processamento"
+      
+    layers:
+      silver:
+        subdomains:
+          rpf: # Subdomínio: Risco Financeiro
+            storage_ref: "account_dgf"
+            container: "stbr_dgf_rpf"
+            path: "abfss://stbr_dgf_rpf@stbrdgfdev.dfs.core.windows.net/"
+            catalog_schema: "dgf_silver_rpf"
+          
+          pld: # Subdomínio: Prevenção a Lavagem de Dinheiro
+            storage_ref: "account_dgf"
+            container: "stbr_dgf_pld"
+            path: "abfss://stbr_dgf_pld@stbrdgfdev.dfs.core.windows.net/"
+            catalog_schema: "dgf_silver_pld"
+
+      gold:
+        subdomains:
+          indicadores_diretoria:
+            storage_ref: "account_dgf"
+            container: "stbr_dgf_gold"
+            path: "abfss://stbr_dgf_gold@stbrdgfdev.dfs.core.windows.net/indicadores/"
+            catalog_schema: "dgf_gold_indicadores"
+
+  # Domínio 2: Recursos Humanos (Exemplo Cross-Domain)
+  hr:
+    cost_tracking:
+      cost_center: "recursos_humanos"
+      owner: "squad_dados_hr"
+      
+    layers:
+      silver:
+        subdomains:
+          folha_pagamento:
+            storage_ref: "account_cross"
+            container: "stbr_hr_folha"
+            path: "abfss://stbr_hr_folha@stbrcrossdev.dfs.core.windows.net/"
+            catalog_schema: "hr_silver_folha"
+
+# ==========================================
+# 3. BANCOS DE DADOS RELACIONAIS E NOSQL
+# ==========================================
+databases:
+  postgresql_main:
+    type: "postgresql"
+    host: "psql-dev.internal.corp"
+    port: 5432
+    database: "business_db"
+    secret_scope: "kv-core-dev"
+    secret_key_user: "psql-user"
+    secret_key_pass: "psql-pass"
+    
+  dynamodb_tracking:
+    type: "dynamodb"
+    region: "us-east-1"
+    table_prefix: "dev_"
+
+# ==========================================
+# 4. CONFIGURAÇÕES GERAIS DO SPARK
+# ==========================================
+spark_config:
+  <<: *spark_base
+  "spark.driver.memory": "4g"
+  "spark.executor.memory": "8g"
+  "spark.sql.shuffle.partitions": "50"
+  # Exemplo de tag injetada no cluster para controle de custos
+  "spark.databricks.cluster.profile": "serverless"
+
+# ==========================================
+# 5. CONFIGURAÇÕES DE EMAIL / ALERTAS
+# ==========================================
+email:
+  <<: *email_base
+  sender: "data-alerts-dev@corp.com"
+  default_recipients: 
+    - "data-eng-dev@corp.com"
